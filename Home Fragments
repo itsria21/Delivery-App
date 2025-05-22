@@ -1,0 +1,68 @@
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.SearchView
+import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.example.fooddelivery.R
+import com.example.fooddelivery.adapters.RestaurantAdapter
+import com.example.fooddelivery.models.Restaurant
+
+class HomeFragment : Fragment() {
+
+    private lateinit var restaurantRecyclerView: RecyclerView
+    private lateinit var restaurantAdapter: RestaurantAdapter
+    private lateinit var searchView: SearchView
+    private var restaurantList = mutableListOf<Restaurant>()
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_home, container, false)
+        
+        // Initialize views
+        restaurantRecyclerView = view.findViewById(R.id.restaurantRecyclerView)
+        searchView = view.findViewById(R.id.searchView)
+        
+        // Setup RecyclerView
+        restaurantAdapter = RestaurantAdapter(restaurantList) { restaurant ->
+            // Handle restaurant click - navigate to MenuFragment
+            val menuFragment = MenuFragment.newInstance(restaurant)
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, menuFragment)
+                .addToBackStack(null)
+                .commit()
+        }
+        
+        restaurantRecyclerView.layoutManager = LinearLayoutManager(requireContext())
+        restaurantRecyclerView.adapter = restaurantAdapter
+        
+        // Setup search functionality
+        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                return false
+            }
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                restaurantAdapter.filter.filter(newText)
+                return false
+            }
+        })
+        
+        // Load restaurants (in a real app, this would come from a database or API)
+        loadRestaurants()
+        
+        return view
+    }
+    
+    private fun loadRestaurants() {
+        // In a real app, you would fetch this from your database or API
+        val dbHelper = DatabaseHelper(requireContext())
+        restaurantList.clear()
+        restaurantList.addAll(dbHelper.getRestaurants())
+        restaurantAdapter.notifyDataSetChanged()
+    }
+}
