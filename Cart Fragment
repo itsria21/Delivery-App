@@ -1,0 +1,157 @@
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.TextView
+import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.example.fooddelivery.R
+import com.example.fooddelivery.adapters.CartAdapter
+import com.example.fooddelivery.models.CartItem
+
+class CartFragment : Fragment() {
+
+    private lateinit var cartRecyclerView: RecyclerView
+    private lateinit var cartAdapter: CartAdapter
+    private lateinit var checkoutButton: Button
+    private lateinit var totalPriceTextView: TextView
+    private var cartItems = mutableListOf<CartItem>()
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_cart, container, false)
+        
+        // Initialize views
+        cartRecyclerView = view.findViewById(R.id.cartRecyclerView)
+        checkoutButton = view.findViewById(R.id.checkoutButton)
+        totalPriceTextView = view.findViewById(R.id.totalPriceTextView)
+        
+        // Setup RecyclerView
+        cartAdapter = CartAdapter(cartItems) { cartItem, action ->
+            when (action) {
+                "INCREASE" -> updateCartItem(cartItem, cartItem.quantity + 1)
+                "DECREASE" -> updateCartItem(cartItem, cartItem.quantity - 1)
+                "REMOVE" -> showRemoveItemDialog(cartItem)
+            }
+        }
+        
+        cartRecyclerView.layoutManager = LinearLayoutManager(requireContext())
+        cartRecyclerView.adapter = cartAdapter
+        
+        // Load cart items
+        loadCartItems()
+        
+        // Setup checkout button
+        checkoutButton.setOnClickListener {
+            showCheckoutDialog()
+        }
+        
+        return view
+    }
+    
+    private fun loadCartItems() {
+        val dbHelper = DatabaseHelper(requireContext())
+        cartItems.clear()
+        cartItems.addAll(dbHelper.getCartItems())
+        cartAdapter.notifyDataSetChanged()
+        updateTotalPrice()
+    }
+    
+    private fun updateCartItem(cartItem: CartItem, newQuantity: Int) {
+        if (newQuantity <= 0) {
+            showRemoveItemDialog(cartItem)
+            return
+        }
+        
+        val dbHelper = DatabaseHelper(requireContext())
+        dbHelper.updateCartItem(cartItem.menuItem.id, newQuantity)
+        loadCartItems() // Refresh the list
+    }
+    
+    private fun showRemoveItemDialog(cartItem: CartItem) {
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle("Remove Item")
+            .setMessage("Remove ${cartItem.menuItem.name} from your cart?")
+            .setPositiveButton("Remove") { _, _ ->
+                val dbHelper = DatabaseHelper(requireContext())
+                dbHelper.removeFromCart(cartItem.menuItem.id)
+                loadCartItems()
+            }
+            .setNegativeButton("Cancel", null)
+            .create()
+        
+        // Custom style
+        dialog.window?.setBackgroundDrawableResource(R.drawable.dialog_background)
+        dialog.show()
+    }
+    
+    private fun showCheckoutDialog() {
+        if (cartItems.isEmpty()) {
+            showErrorDialog("Your cart is empty!")
+            return
+        }
+        
+        val total = cartItems.sumOf { it.menuItem.price * it.quantity }
+        
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle("Confirm Order")
+            .setMessage("Total: $${"%.2f".format(total)}\n\nProceed to checkout?")
+            .setPositiveButton("Confirm") { _, _ ->
+                placeOrder()
+            }
+            .setNegativeButton("Cancel", null)
+            .create()
+        
+        // Different style for checkout dialog
+        dialog.window?.setBackgroundDrawableResource(R.drawable.checkout_dialog_background)
+        dialog.show()
+    }
+    
+    private fun placeOrder() {
+        val dbHelper = DatabaseHelper(requireContext())
+        val orderId = System.currentTimeMillis().toString()
+        val total = cartItems.sumOf { it.menuItem.price * it.quantity }
+        val date = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date())
+        
+        dbHelper.placeOrder(orderId, cartItems, total, date)
+        dbHelper.clearCart()
+        
+        showOrderConfirmationDialog(orderId, total)
+        loadCartItems() // Refresh empty cart
+    }
+    
+    private fun showOrderConfirmationDialog(orderId: String, total: Double) {
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle("Order Placed!")
+            .setMessage("Your order #$orderId has been placed.\nTotal: $${"%.2f".format(total)}")
+            .setPositiveButton("OK") { _, _ ->
+                // Optionally navigate to order history or home
+            }
+            .create()
+        
+        // Custom style for success dialog
+        dialog.window?.setBackgroundDrawableResource(R.drawable.success_dialog_background)
+        dialog.show()
+    }
+    
+    private fun updateTotalPrice() {
+        val total = cartItems.sumOf { it.menuItem.price * it.quantity }
+        totalPriceTextView.text = "Total: $${"%.2f".format(total)}"
+    }
+    
+    private fun showErrorDialog(message: String) {
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle("Error")
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .create()
+        
+        // Error style dialog
+        dialog.window?.setBackgroundDrawableResource(R.drawable.error_dialog_background)
+        dialog.show()
+    }
+}
