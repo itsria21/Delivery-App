@@ -1,0 +1,38 @@
+// Restaurant.kt
+data class Restaurant(
+    val id: String,
+    val name: String,
+    val image: Int, // Using drawable resource IDs
+    val rating: Float,
+    val menuItems: List<MenuItem> = emptyList()
+)
+
+// MenuItem.kt
+data class MenuItem(
+    val id: String,
+    val name: String,
+    val price: Double,
+    val image: Int,
+    val restaurantId: String
+)
+
+// CartItem.kt
+data class CartItem(
+    val menuItem: MenuItem,
+    var quantity: Int
+)
+
+// User.kt
+data class User(
+    val name: String,
+    val profileImage: Int,
+    val orderHistory: List<Order>
+)
+
+// Order.kt
+data class Order(
+    val id: String,
+    val items: List<CartItem>,
+    val total: Double,
+    val date: String
+)
