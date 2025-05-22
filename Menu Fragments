@@ -1,0 +1,99 @@
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.example.fooddelivery.R
+import com.example.fooddelivery.adapters.MenuItemAdapter
+import com.example.fooddelivery.models.MenuItem
+import com.example.fooddelivery.models.Restaurant
+
+class MenuFragment : Fragment() {
+
+    companion object {
+        private const val ARG_RESTAURANT = "restaurant"
+        
+        fun newInstance(restaurant: Restaurant): MenuFragment {
+            val fragment = MenuFragment()
+            val args = Bundle()
+            args.putParcelable(ARG_RESTAURANT, restaurant)
+            fragment.arguments = args
+            return fragment
+        }
+    }
+
+    private lateinit var menuRecyclerView: RecyclerView
+    private lateinit var menuAdapter: MenuItemAdapter
+    private var menuItems = mutableListOf<MenuItem>()
+    private lateinit var restaurant: Restaurant
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_menu, container, false)
+        
+        // Get restaurant from arguments
+        restaurant = arguments?.getParcelable(ARG_RESTAURANT)!!
+        
+        // Initialize views
+        menuRecyclerView = view.findViewById(R.id.menuRecyclerView)
+        
+        // Setup RecyclerView
+        menuAdapter = MenuItemAdapter(menuItems) { menuItem ->
+            // Show add to cart dialog
+            showAddToCartDialog(menuItem)
+        }
+        
+        menuRecyclerView.layoutManager = LinearLayoutManager(requireContext())
+        menuRecyclerView.adapter = menuAdapter
+        
+        // Load menu items
+        loadMenuItems()
+        
+        return view
+    }
+    
+    private fun loadMenuItems() {
+        // In a real app, you would fetch this from your database or API
+        menuItems.clear()
+        menuItems.addAll(restaurant.menuItems)
+        menuAdapter.notifyDataSetChanged()
+    }
+    
+    private fun showAddToCartDialog(menuItem: MenuItem) {
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle("Add to Cart")
+            .setMessage("Add ${menuItem.name} to your cart?")
+            .setPositiveButton("Add") { _, _ ->
+                // Add to cart logic
+                val dbHelper = DatabaseHelper(requireContext())
+                dbHelper.addToCart(menuItem)
+                showSuccessDialog("Item added to cart!")
+            }
+            .setNegativeButton("Cancel", null)
+            .create()
+        
+        // Custom style
+        dialog.window?.setBackgroundDrawableResource(R.drawable.dialog_background)
+        dialog.show()
+        
+        // Custom button colors
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(ContextCompat.getColor(requireContext(), R.color.colorPrimary))
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(ContextCompat.getColor(requireContext(), R.color.colorAccent))
+    }
+    
+    private fun showSuccessDialog(message: String) {
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle("Success")
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .create()
+        
+        // Different style
+        dialog.window?.setBackgroundDrawableResource(R.drawable.success_dialog_background)
+        dialog.show()
+    }
+}
